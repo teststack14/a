@@ -40,7 +40,7 @@
   .hint.show{display:block}
   .hint .warn{color:var(--red);font-weight:600;display:block;margin-top:4px}
   .hint .pend{color:var(--amber);display:block;margin-top:4px}
-  .balances{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+  .balances{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
   .bal{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .bal .c{font-size:12px;color:var(--muted);font-weight:600}
   .bal .v{font-size:19px;font-weight:700;margin:2px 0}
@@ -63,11 +63,28 @@
   .msg.err{display:block;background:var(--redbg);color:var(--red)}
   .msg.ok{display:block;background:var(--greenbg);color:var(--green)}
   #login{max-width:360px;margin:60px auto}
-  .row-actions{display:flex;gap:6px;align-items:center}
-  .row-actions input{width:150px;padding:5px 8px}
+  .row-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .row-actions input{width:140px;padding:5px 8px}
   .row-actions button{padding:6px 10px}
   .muted{color:var(--muted)}
+  .tbl tr.act td{border-top:0;padding-top:0}
+  .tbl tr:has(+ tr.act) td{border-bottom:0}
   .hidden{display:none}
+  .topbar{display:flex;justify-content:flex-end;margin-bottom:16px}
+  .btn-new{font-size:15px;font-weight:700;padding:12px 20px;border-radius:10px;box-shadow:0 2px 6px rgba(15,118,110,.25)}
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 12px}
+  .overlay.hidden{display:none}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:860px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .modal-head h2{margin:0;font-size:17px}
+  .x{background:#eef2f5;color:var(--ink);width:36px;height:36px;padding:0;border-radius:50%;font-size:18px;line-height:36px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .chip{background:#fff;color:var(--ink);border:1.5px solid #cbd5e1;border-radius:10px;padding:10px 14px;font-weight:700;min-width:64px;min-height:44px}
+  .rec .chip.sel{background:#16a34a;border-color:#16a34a;color:#fff}
+  .paid .chip.sel{background:#dc2626;border-color:#dc2626;color:#fff}
+  .edit-btn{background:transparent;color:var(--accent2);border:1px solid #cbd5e1;padding:3px 9px;font-size:12px;margin-left:6px;border-radius:6px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#166534;color:#fff;padding:10px 18px;border-radius:10px;z-index:30;font-weight:600;display:none}
+  @media (max-width:760px){.hide-m{display:none}.tbl th,.tbl td{padding:6px 5px;font-size:12.5px}.bal .v{font-size:17px}.overlay{padding:0}.modal{border-radius:0;min-height:100%}.btn-new{width:100%}}
   @media (max-width:760px){.g3,.g2{grid-template-columns:1fr} main{padding:10px}}
 </style>
 </head>
@@ -96,43 +113,11 @@
 <main id="app" class="hidden">
 
   <div class="card">
-    <h2>Balance (only dated entries)</h2>
+    <h2>Balance</h2>
     <div class="balances" id="balances"></div>
   </div>
 
-  <div class="card">
-    <h2>New entry</h2>
-    <div class="grid g3">
-      <div><label>Date *</label><input type="date" id="fDate"></div>
-      <div><label>Account Type *</label><select id="fAcc"></select></div>
-      <div><label>Description *</label><input id="fDesc" maxlength="200"></div>
-    </div>
-    <div class="grid g2" style="margin-top:12px">
-      <div class="side rec">
-        <h3>RECEIVE</h3>
-        <div class="grid g2">
-          <div><label>Receive currency</label><select id="rCur" class="cur"></select></div>
-          <div><label>Receive amount</label><input id="rAmt" type="number" min="0" step="0.01"></div>
-        </div>
-        <label class="chk"><input type="checkbox" id="rDone" checked> Received (untick = Pending)</label>
-      </div>
-      <div class="side paid">
-        <h3>PAID</h3>
-        <div class="grid g2">
-          <div><label>Paid currency</label><select id="pCur" class="cur"></select></div>
-          <div><label>Paid amount</label><input id="pAmt" type="number" min="0" step="0.01"></div>
-        </div>
-        <label class="chk"><input type="checkbox" id="pDone" checked> Paid (untick = Pending)</label>
-        <div class="hint" id="pHint"></div>
-      </div>
-    </div>
-    <div style="margin-top:12px"><label>Remark</label><textarea id="fRemark" maxlength="300"></textarea></div>
-    <div style="margin-top:12px;display:flex;gap:8px">
-      <button id="saveBtn" onclick="doSave()">Save entry</button>
-      <button class="light" onclick="resetForm()">Clear</button>
-    </div>
-    <div id="fMsg" class="msg"></div>
-  </div>
+  <div class="topbar"><button class="btn-new" onclick="openForm()">＋ New entry</button></div>
 
   <div class="card">
     <h2 id="todayTitle">Today's entries</h2>
@@ -147,8 +132,46 @@
   </div>
 </main>
 
+<!-- ENTRY FORM (popup) -->
+<div class="overlay hidden" id="formBox">
+  <div class="modal">
+    <div class="modal-head"><h2 id="formTitle">New entry</h2><button class="x" onclick="closeForm()" aria-label="Close">✕</button></div>
+    <div class="grid g3">
+      <div><label>Date *</label><input type="date" id="fDate"></div>
+      <div><label>Account Type *</label><select id="fAcc"></select></div>
+      <div><label>Description *</label><input id="fDesc" maxlength="200"></div>
+    </div>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="side rec">
+        <h3>RECEIVE</h3>
+        <label>Receive currency</label>
+        <div class="chips" id="rChips"></div><input type="hidden" id="rCur">
+        <label>Receive amount</label>
+        <input id="rAmt" type="text" inputmode="decimal" autocomplete="off">
+        <label class="chk"><input type="checkbox" id="rDone" checked> Received (untick = Pending)</label>
+      </div>
+      <div class="side paid">
+        <h3>PAID</h3>
+        <label>Paid currency</label>
+        <div class="chips" id="pChips"></div><input type="hidden" id="pCur">
+        <label>Paid amount</label>
+        <input id="pAmt" type="text" inputmode="decimal" autocomplete="off">
+        <label class="chk"><input type="checkbox" id="pDone" checked> Paid (untick = Pending)</label>
+        <div class="hint" id="pHint"></div>
+      </div>
+    </div>
+    <div style="margin-top:12px"><label>Remark</label><textarea id="fRemark" maxlength="300"></textarea></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button id="saveBtn" onclick="doSave()">Save entry</button>
+      <button class="light" onclick="closeForm()">Cancel</button>
+    </div>
+    <div id="fMsg" class="msg"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
 <script>
-  var S = { token: null, user: null, dash: null, tab: null };
+  var S = { token: null, user: null, dash: null, tab: null, curs: [], editRow: null, editOrig: null };
 
   function ss(k, v){ try{ if(v===undefined) return sessionStorage.getItem(k); if(v===null) sessionStorage.removeItem(k); else sessionStorage.setItem(k,v); }catch(e){ return null; } }
   function $(id){ return document.getElementById(id); }
@@ -159,8 +182,8 @@
   function showDate(ymd){ if(!ymd) return ''; var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var p=ymd.split('-'); return p[2]+'-'+m[Number(p[1])-1]+'-'+p[0]; }
   function msg(id, text, ok){ var el=$(id); el.className='msg '+(text?(ok?'ok':'err'):''); el.textContent=text||''; }
 
-  /* ====== ====== */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbwU-3F71PV1k3ngndjQloOLBlCtC-t0KryQMq4Bv-tfScqQu7KWx3fWxpFU4WgCQrFGuw/exec';
+  /* ====== PASTE YOUR APPS SCRIPT WEB APP URL HERE (ends with /exec) ====== */
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzv_tIk76u3_h3YrdJVCR9od2FH743ThVtFTVaB7Jn-VeQ3HifbciJv5gDnYEHnO6dOgw/exec';
 
   function call(fn){
     var args=[].slice.call(arguments,1);
@@ -205,10 +228,9 @@
       S.user=d.user;
       $('who').textContent=d.user;
       fillSelect($('fAcc'), d.accountTypes, 'Select account type');
-      fillSelect($('pCur'), d.currencies, '— none —');
-      fillSelect($('rCur'), d.currencies, '— none —');
+      S.curs=d.currencies||[];
+      buildChips('r'); buildChips('p');
       $('login').classList.add('hidden'); $('app').classList.remove('hidden'); $('hdrRight').classList.remove('hidden');
-      resetForm();
       render(d.dash);
     });
   }
@@ -239,26 +261,26 @@
     var g = dash.groups.filter(function(x){return x.cur===S.tab;})[0];
     if(!g){ $('groups').innerHTML='<span class="muted">No entries today.</span>'; }
     else {
-      var rows='<tr class="open"><td colspan="4">Opening balance</td><td class="n '+cls(g.opening)+'">'+fmt(g.opening)+'</td></tr>';
+      var rows='<tr class="open"><td colspan="3">Opening balance</td><td class="hide-m"></td><td class="n '+cls(g.opening)+'">'+fmt(g.opening)+'</td></tr>';
       rows+= g.lines.length ? g.lines.map(function(l){
-        return '<tr><td>'+esc(l.desc)+(l.yesterday?'<span class="badge b-y">Yesterday</span>':'')+(l.done?'':'<span class="badge b-pend b-pend-s">Pending</span>')+'</td>'+
-          '<td>'+esc(l.acc)+'</td>'+
+        return '<tr><td>'+esc(l.desc)+(l.yesterday?'<span class="badge b-y">Yesterday</span>':'')+(l.done?'':'<span class="badge b-pend b-pend-s">Pending</span>')+(S.dash.entries&&S.dash.entries[l.row]?'<button class="edit-btn" onclick="editRow('+l.row+')">Edit</button>':'')+'</td>'+
+          '<td class="hide-m">'+esc(l.acc)+'</td>'+
           '<td class="n">'+(l.type==='RECEIVED'?fmt(l.amt):'')+'</td>'+
           '<td class="n">'+(l.type==='PAID'?fmt(l.amt):'')+'</td>'+
           '<td class="n '+cls(l.running)+'">'+fmt(l.running)+'</td></tr>';
       }).join('') : '<tr><td colspan="5" class="muted">No '+esc(g.cur)+' entries today.</td></tr>';
       var pend=[]; if(g.pendRec) pend.push('Pending receive '+fmt(g.pendRec)); if(g.pendPaid) pend.push('Pending paid '+fmt(g.pendPaid));
-      rows+='<tr class="close"><td colspan="4">Closing'+(pend.length?' <span class="muted" style="font-weight:400">('+esc(pend.join(' · '))+')</span>':'')+'</td><td class="n '+cls(g.closing)+'">'+fmt(g.closing)+'</td></tr>';
+      rows+='<tr class="close"><td class="hide-m"></td><td colspan="3">Closing'+(pend.length?' <span class="muted" style="font-weight:400">('+esc(pend.join(' · '))+')</span>':'')+'</td><td class="n '+cls(g.closing)+'">'+fmt(g.closing)+'</td></tr>';
       $('groups').innerHTML='<div class="scroll"><table class="tbl">'+
-        '<thead><tr><th>Description</th><th>Account</th><th class="n">Received</th><th class="n">Paid</th><th class="n">Running Bal</th></tr></thead>'+
+        '<thead><tr><th>Description</th><th class="hide-m">Account</th><th class="n">Received</th><th class="n">Paid</th><th class="n">Running Bal</th></tr></thead>'+
         '<tbody>'+rows+'</tbody></table></div>';
     }
 
     // pending list
-    $('pending').innerHTML = dash.pending.length ? '<table class="tbl"><thead><tr><th>Date</th><th>Account</th><th>Description</th><th>Side</th><th>Currency</th><th class="n">Amount</th><th>Mark done</th></tr></thead><tbody>'+
+    $('pending').innerHTML = dash.pending.length ? '<table class="tbl"><thead><tr><th>Date</th><th class="hide-m">Account</th><th>Description</th><th class="n">Amount</th></tr></thead><tbody>'+
       dash.pending.map(function(p,i){
-        return '<tr><td>'+esc(showDate(p.date))+'</td><td>'+esc(p.acc)+'</td><td>'+esc(p.desc)+'</td><td>'+esc(p.type)+'</td><td>'+esc(p.cur)+'</td><td class="n">'+fmt(p.amt)+'</td>'+
-          '<td><div class="row-actions"><input type="date" id="pd'+i+'" value="'+localYmd()+'"><button onclick="markDone('+i+')">Done</button></div></td></tr>';
+        return '<tr><td>'+esc(showDate(p.date))+'</td><td class="hide-m">'+esc(p.acc)+'</td><td>'+esc(p.desc)+'</td><td class="n"><b>'+(p.type==='PAID'?'Paid ':'Rec ')+'</b>'+fmt(p.amt)+' '+esc(p.cur)+'</td>'+
+          '</tr><tr class="act"><td colspan="4"><div class="row-actions"><input type="date" id="pd'+i+'" value="'+localYmd()+'"><button onclick="markDone('+i+')">Done</button><button class="edit-btn" onclick="editRow('+p.row+')">Edit</button></div></td></tr>';
       }).join('')+'</tbody></table>' : '<span class="muted">Nothing pending.</span>';
 
     updateHints();
@@ -271,11 +293,13 @@
   }
   // Only a red warning when a completed PAID amount is more than the available balance (never blocks save)
   function updateHints(){
-    var pc=$('pCur').value, pa=Number($('pAmt').value)||0, pd=$('pDone').checked;
-    var rc=$('rCur').value, ra=Number($('rAmt').value)||0, rd=$('rDone').checked;
+    var pc=$('pCur').value, pa=amtVal('pAmt');
+    var rc=$('rCur').value, ra=amtVal('rAmt');
     var h=$('pHint');
-    if(pc && pa>0 && pd){
-      var avail=balOf(pc).balance + ((rc===pc && rd) ? ra : 0);
+    if(pc && pa>0){
+      var avail=balOf(pc).balance + (rc===pc ? ra : 0);
+      if(S.editRow && S.dash.entries[S.editRow]){ var o=S.dash.entries[S.editRow]; // undo old values of the row being edited
+        if(o.pCur===pc) avail+=o.pAmt; if(o.rCur===pc) avail-=o.rAmt; }
       if(pa>avail){
         h.innerHTML='<span class="warn">Only '+fmt(avail)+' '+esc(pc)+' available. The balance will go negative.</span>';
         h.classList.add('show'); return;
@@ -284,7 +308,37 @@
     h.classList.remove('show'); h.innerHTML='';
   }
   function selectTab(cur){ S.tab=cur; render(S.dash); }
-  ['pCur','pAmt','pDone','rCur','rAmt','rDone'].forEach(function(id){
+  function amtVal(id){ var n=Number(String($(id).value).replace(/,/g,'').trim()); return isNaN(n)?0:n; }
+  function buildChips(side){
+    $(side+'Chips').innerHTML=S.curs.map(function(c){
+      return '<button type="button" class="chip" data-cur="'+esc(c)+'" onclick="pickCur(\''+side+'\',this.getAttribute(\'data-cur\'))">'+esc(c)+'</button>';
+    }).join('');
+  }
+  function setCur(side,cur){
+    $(side+'Cur').value=cur||'';
+    [].forEach.call($(side+'Chips').querySelectorAll('.chip'),function(b){ b.classList.toggle('sel', b.getAttribute('data-cur')===cur); });
+    updateHints();
+  }
+  function pickCur(side,cur){ setCur(side, $(side+'Cur').value===cur ? '' : cur); } // tap again = unselect
+  function toast(t){ var el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(function(){el.style.display='none';},2500); }
+  function openForm(entry){
+    resetForm();
+    S.editRow=null; S.editOrig=null;
+    if(entry){
+      S.editRow=entry.row; S.editOrig={date:entry.date, desc:entry.desc};
+      $('fDate').value=entry.date; $('fAcc').value=entry.acc; $('fDesc').value=entry.desc; $('fRemark').value=entry.remark||'';
+      setCur('r',entry.rCur); $('rAmt').value=entry.rAmt||''; $('rDone').checked=entry.rCur?entry.rDone:true;
+      setCur('p',entry.pCur); $('pAmt').value=entry.pAmt||''; $('pDone').checked=entry.pCur?entry.pDone:true;
+    }
+    $('formTitle').textContent = entry ? 'Edit entry' : 'New entry';
+    $('saveBtn').textContent = entry ? 'Update entry' : 'Save entry';
+    $('formBox').classList.remove('hidden'); document.body.style.overflow='hidden';
+    updateHints();
+  }
+  function closeForm(){ $('formBox').classList.add('hidden'); document.body.style.overflow=''; S.editRow=null; S.editOrig=null; }
+  function editRow(row){ var e=S.dash&&S.dash.entries&&S.dash.entries[row]; if(e) openForm(e); }
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && !$('formBox').classList.contains('hidden')) closeForm(); });
+  ['pAmt','pDone','rAmt','rDone'].forEach(function(id){
     $(id).addEventListener('input',updateHints); $(id).addEventListener('change',updateHints);
   });
 
@@ -292,33 +346,37 @@
   function resetForm(){
     $('fDate').value=localYmd(); $('fDesc').value=''; $('fRemark').value='';
     var acc=$('fAcc'); acc.value = [].some.call(acc.options,function(o){return o.value==='CLIENT';}) ? 'CLIENT' : '';
-    ['pCur','pAmt','rCur','rAmt'].forEach(function(id){ $(id).value=''; });
+    ['pAmt','rAmt'].forEach(function(id){ $(id).value=''; }); setCur('r',''); setCur('p','');
     $('rDone').checked=true; $('pDone').checked=true;
     msg('fMsg',''); updateHints();
   }
   function clientCheck(){
-    var e=[], pc=$('pCur').value, pa=$('pAmt').value, rc=$('rCur').value, ra=$('rAmt').value;
+    var e=[], pc=$('pCur').value, pa=$('pAmt').value.trim(), rc=$('rCur').value, ra=$('rAmt').value.trim();
     if(!$('fDate').value) e.push('DATE is required.');
     if(!$('fAcc').value) e.push('Select ACCOUNT TYPE.');
     if(!$('fDesc').value.trim()) e.push('DESCRIPTION is required.');
     var pAny=pc||pa, rAny=rc||ra;
     if(!pAny&&!rAny) e.push('Fill at least one side: RECEIVE or PAID.');
-    if(rAny){ if(!rc) e.push('RECEIVE: select a currency.'); if(!(Number(ra)>0)) e.push('RECEIVE: amount must be more than 0.'); }
-    if(pAny){ if(!pc) e.push('PAID: select a currency.'); if(!(Number(pa)>0)) e.push('PAID: amount must be more than 0.'); }
+    if(rAny){ if(!rc) e.push('RECEIVE: select a currency.'); if(!(amtVal('rAmt')>0)) e.push('RECEIVE: amount must be more than 0.'); }
+    if(pAny){ if(!pc) e.push('PAID: select a currency.'); if(!(amtVal('pAmt')>0)) e.push('PAID: amount must be more than 0.'); }
     return e;
   }
   function doSave(){
     var errs=clientCheck(); if(errs.length){ msg('fMsg',errs.join('\n')); return; }
     var b=$('saveBtn'); b.disabled=true; msg('fMsg','');
     var entry={ date:$('fDate').value, acc:$('fAcc').value, desc:$('fDesc').value, remark:$('fRemark').value,
-      rCur:$('rCur').value, rAmt:$('rAmt').value, rDone:$('rDone').checked,
-      pCur:$('pCur').value, pAmt:$('pAmt').value, pDone:$('pDone').checked };
-    call('saveEntry',S.token,entry).then(function(d){ resetForm(); render(d); msg('fMsg','Saved.',true); })
+      rCur:$('rCur').value, rAmt:($('rAmt').value.trim()?amtVal('rAmt'):''), rDone:$('rDone').checked,
+      pCur:$('pCur').value, pAmt:($('pAmt').value.trim()?amtVal('pAmt'):''), pDone:$('pDone').checked };
+    var editing=S.editRow;
+    var req = editing ? call('updateEntry',S.token,editing,S.editOrig,entry) : call('saveEntry',S.token,entry);
+    req.then(function(d){ closeForm(); render(d); toast(editing?'Entry updated.':'Entry saved.'); })
       .catch(function(e){ msg('fMsg',e.message); }).then(function(){ b.disabled=false; });
   }
   function markDone(i){
     var p=S.dash.pending[i], d=$('pd'+i).value;
     if(!d){ msg('pMsg','Select a date.'); return; }
+    var sideTxt = p.type==='PAID' ? 'Paid' : 'Received';
+    if(!confirm('Confirm: mark as DONE?\n\n'+p.desc+'\n'+sideTxt+' '+fmt(p.amt)+' '+p.cur+'\nDate: '+showDate(d))) return;
     msg('pMsg','');
     call('markDone',S.token,p.row,p.type,d).then(function(dash){ render(dash); msg('pMsg','Updated: '+p.desc+' ('+p.type+' '+p.cur+')',true); })
       .catch(function(e){ msg('pMsg',e.message); });
