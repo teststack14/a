@@ -31,9 +31,10 @@
   .side h3{margin:0 0 10px;font-size:14px}
   .chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--ink);cursor:pointer}
   .chk input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
-  .tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:12px}
-  .tab{background:transparent;color:var(--muted);border-radius:8px 8px 0 0;padding:8px 14px;border:1px solid transparent;border-bottom:0;font-weight:600}
-  .tab.active{background:#fff;color:var(--ink);border-color:var(--line);margin-bottom:-1px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:3px solid #0b3b4a;margin-bottom:12px}
+  .tab{background:#e0f2f1;color:#0b3b4a;border-radius:8px 8px 0 0;padding:9px 16px;border:1px solid #b2dfdb;border-bottom:0;font-weight:700}
+  .tab.active{background:#0b3b4a;color:#fff;border-color:#0b3b4a}
+  .tab.active .cnt{background:#fff;color:#0b3b4a}
   .tab .cnt{font-size:11px;background:#e2e8f0;border-radius:99px;padding:1px 7px;margin-left:6px;color:var(--ink)}
   .b-pend-s{font-size:10.5px;padding:1px 6px;margin-left:6px}
   .hint{font-size:12.5px;margin-top:8px;padding:8px 10px;border-radius:8px;background:#f1f5f9;display:none}
@@ -70,6 +71,8 @@
   .tbl tr.act td{border-top:0;padding-top:0}
   .tbl tr:has(+ tr.act) td{border-bottom:0}
   .hidden{display:none}
+  #hdrRight{display:flex;gap:8px;align-items:center}
+  #hdrRight.hidden{display:none}
   .topbar{display:flex;justify-content:flex-end;margin-bottom:16px}
   .btn-new{font-size:15px;font-weight:700;padding:12px 20px;border-radius:10px;box-shadow:0 2px 6px rgba(15,118,110,.25)}
   .overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 12px}
@@ -82,7 +85,13 @@
   .chip{background:#fff;color:var(--ink);border:1.5px solid #cbd5e1;border-radius:10px;padding:10px 14px;font-weight:700;min-width:64px;min-height:44px}
   .rec .chip.sel{background:#16a34a;border-color:#16a34a;color:#fff}
   .paid .chip.sel{background:#dc2626;border-color:#dc2626;color:#fff}
-  .edit-btn{background:transparent;color:var(--accent2);border:1px solid #cbd5e1;padding:3px 9px;font-size:12px;margin-left:6px;border-radius:6px}
+  .edit-btn{background:transparent;color:var(--accent2);border:0;padding:2px 6px;font-size:16px;line-height:1;margin-left:4px;border-radius:6px;vertical-align:middle}
+  .edit-btn:hover{background:#e0f2f1}
+  .loader{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:40;display:flex;align-items:center;justify-content:center}
+  .loader.hidden{display:none}
+  .loader-box{background:#fff;border-radius:12px;padding:22px 28px;display:flex;align-items:center;gap:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  .spin{width:26px;height:26px;border:3px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#166534;color:#fff;padding:10px 18px;border-radius:10px;z-index:30;font-weight:600;display:none}
   @media (max-width:760px){.hide-m{display:none}.tbl th,.tbl td{padding:6px 5px;font-size:12.5px}.bal .v{font-size:17px}.overlay{padding:0}.modal{border-radius:0;min-height:100%}.btn-new{width:100%}}
   @media (max-width:760px){.g3,.g2{grid-template-columns:1fr} main{padding:10px}}
@@ -91,7 +100,7 @@
 <body>
 <header>
   <h1>LONDON Ledger</h1>
-  <div id="hdrRight" class="hidden" style="display:flex;gap:8px;align-items:center">
+  <div id="hdrRight" class="hidden">
     <span class="who" id="who"></span>
     <button class="ghost" onclick="refresh()">Refresh</button>
     <button class="ghost" onclick="doLogout()">Logout</button>
@@ -118,10 +127,8 @@
   </div>
 
   <div class="topbar"><button class="btn-new" onclick="openForm()">＋ New entry</button></div>
-  <div id="timing" class="muted" style="font-size:11px;margin:-8px 0 12px;word-break:break-all"></div>
 
   <div class="card">
-    <h2 id="todayTitle">Today's entries</h2>
     <div class="tabs" id="curTabs"></div>
     <div id="groups"></div>
   </div>
@@ -170,6 +177,7 @@
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="loader hidden" id="loader"><div class="loader-box"><div class="spin"></div><span id="loaderText">Please wait…</span></div></div>
 
 <script>
   var S = { token: null, user: null, dash: null, tab: null, curs: [], editRow: null, editOrig: null };
@@ -183,8 +191,8 @@
   function showDate(ymd){ if(!ymd) return ''; var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var p=ymd.split('-'); return p[2]+'-'+m[Number(p[1])-1]+'-'+p[0]; }
   function msg(id, text, ok){ var el=$(id); el.className='msg '+(text?(ok?'ok':'err'):''); el.textContent=text||''; }
 
-  /* ====== ====== */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbwU-3F71PV1k3ngndjQloOLBlCtC-t0KryQMq4Bv-tfScqQu7KWx3fWxpFU4WgCQrFGuw/exec';
+  /* ====== PASTE YOUR APPS SCRIPT WEB APP URL HERE (ends with /exec) ====== */
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzv_tIk76u3_h3YrdJVCR9od2FH743ThVtFTVaB7Jn-VeQ3HifbciJv5gDnYEHnO6dOgw/exec';
 
   function call(fn){
     var args=[].slice.call(arguments,1);
@@ -211,16 +219,18 @@
   }
 
   /* ---------- login ---------- */
+  function loading(t){ if(t){ $('loaderText').textContent=t; $('loader').classList.remove('hidden'); } else $('loader').classList.add('hidden'); }
   function showLogin(text){
+    loading('');
     S.token=null; ss('tok',null);
     $('app').classList.add('hidden'); $('hdrRight').classList.add('hidden'); $('login').classList.remove('hidden');
     msg('lgMsg', text||'');
   }
   function doLogin(){
-    var b=$('lgBtn'); b.disabled=true; msg('lgMsg','');
+    var b=$('lgBtn'); b.disabled=true; msg('lgMsg',''); loading('Logging in…');
     call('login',$('lgName').value,$('lgPin').value).then(function(r){
-      S.token=r.token; ss('tok',r.token); $('lgPin').value=''; return start();
-    }).catch(function(e){ msg('lgMsg',e.message); }).then(function(){ b.disabled=false; });
+      S.token=r.token; ss('tok',r.token); $('lgPin').value=''; loading('Loading data…'); return start();
+    }).catch(function(e){ msg('lgMsg',e.message); }).then(function(){ b.disabled=false; loading(''); });
   }
   function doLogout(){ call('logout',S.token).catch(function(){}); showLogin(''); }
   $('lgPin').addEventListener('keydown',function(e){ if(e.key==='Enter') doLogin(); });
@@ -250,7 +260,6 @@
     }).join('') : '<span class="muted">No entries yet.</span>';
 
     // today's groups
-    $('todayTitle').textContent="Today's entries ("+showDate(dash.today)+")"+(dash.prevDate?' + last entry of '+showDate(dash.prevDate):'');
     var curList=dash.groups.map(function(g){return g.cur;});
     if(!S.tab || curList.indexOf(S.tab)<0){
       var firstWith=dash.groups.filter(function(g){return g.lines.length;})[0];
@@ -263,10 +272,10 @@
     var g = dash.groups.filter(function(x){return x.cur===S.tab;})[0];
     if(!g){ $('groups').innerHTML='<span class="muted">No entries today.</span>'; }
     else {
-      var rows='<tr class="open"><td colspan="3">Opening balance</td><td class="hide-m"></td><td class="n '+cls(g.opening)+'">'+fmt(g.opening)+'</td></tr>';
+      var rows='<tr class="open"><td class="hide-m"></td><td colspan="3">Opening balance</td><td class="n '+cls(g.opening)+'">'+fmt(g.opening)+'</td></tr>';
       rows+= g.lines.length ? g.lines.map(function(l){
-        return '<tr><td>'+esc(l.desc)+(l.yesterday?'<span class="badge b-y">Yesterday</span>':'')+(l.done?'':'<span class="badge b-pend b-pend-s">Pending</span>')+(S.dash.entries&&S.dash.entries[l.row]?'<button class="edit-btn" onclick="editRow('+l.row+')">Edit</button>':'')+'</td>'+
-          '<td class="hide-m">'+esc(l.acc)+'</td>'+
+        return '<tr><td class="hide-m">'+esc(l.acc)+'</td>'+
+          '<td>'+esc(l.desc)+(l.yesterday?'<span class="badge b-y">Yesterday</span>':'')+(l.done?'':'<span class="badge b-pend b-pend-s">Pending</span>')+(S.dash.entries&&S.dash.entries[l.row]?'<button class="edit-btn" title="Edit" aria-label="Edit" onclick="editRow('+l.row+')">✎</button>':'')+'</td>'+
           '<td class="n">'+(l.type==='RECEIVED'?fmt(l.amt):'')+'</td>'+
           '<td class="n">'+(l.type==='PAID'?fmt(l.amt):'')+'</td>'+
           '<td class="n '+cls(l.running)+'">'+fmt(l.running)+'</td></tr>';
@@ -274,7 +283,7 @@
       var pend=[]; if(g.pendRec) pend.push('Pending receive '+fmt(g.pendRec)); if(g.pendPaid) pend.push('Pending paid '+fmt(g.pendPaid));
       rows+='<tr class="close"><td class="hide-m"></td><td colspan="3">Closing'+(pend.length?' <span class="muted" style="font-weight:400">('+esc(pend.join(' · '))+')</span>':'')+'</td><td class="n '+cls(g.closing)+'">'+fmt(g.closing)+'</td></tr>';
       $('groups').innerHTML='<div class="scroll"><table class="tbl">'+
-        '<thead><tr><th>Description</th><th class="hide-m">Account</th><th class="n">Received</th><th class="n">Paid</th><th class="n">Running Bal</th></tr></thead>'+
+        '<thead><tr><th class="hide-m">Account</th><th>Description</th><th class="n">Received</th><th class="n">Paid</th><th class="n">Running Bal</th></tr></thead>'+
         '<tbody>'+rows+'</tbody></table></div>';
     }
 
@@ -282,7 +291,7 @@
     $('pending').innerHTML = dash.pending.length ? '<table class="tbl"><thead><tr><th>Date</th><th class="hide-m">Account</th><th>Description</th><th class="n">Amount</th></tr></thead><tbody>'+
       dash.pending.map(function(p,i){
         return '<tr><td>'+esc(showDate(p.date))+'</td><td class="hide-m">'+esc(p.acc)+'</td><td>'+esc(p.desc)+'</td><td class="n"><b>'+(p.type==='PAID'?'Paid ':'Rec ')+'</b>'+fmt(p.amt)+' '+esc(p.cur)+'</td>'+
-          '</tr><tr class="act"><td colspan="4"><div class="row-actions"><input type="date" id="pd'+i+'" value="'+localYmd()+'"><button onclick="markDone('+i+')">Done</button><button class="edit-btn" onclick="editRow('+p.row+')">Edit</button></div></td></tr>';
+          '</tr><tr class="act"><td colspan="4"><div class="row-actions"><input type="date" id="pd'+i+'" value="'+localYmd()+'"><button onclick="markDone('+i+')">Done</button></div></td></tr>';
       }).join('')+'</tbody></table>' : '<span class="muted">Nothing pending.</span>';
 
     updateHints();
@@ -377,7 +386,7 @@
     req.then(function(d){ render(d);
       var tot=((Date.now()-t0)/1000).toFixed(1), srv=S.lastMs&&S.lastMs.total?(S.lastMs.total/1000).toFixed(1):'?';
       S.timing='Total '+tot+'s | Google script '+srv+'s | '+JSON.stringify(S.lastMs||{});
-      toast((editing?'Entry updated ✓':'Entry saved ✓')+'  ('+tot+'s)'); $('timing').textContent='Last save timing: '+S.timing; })
+      toast(editing?'Entry updated ✓':'Entry saved ✓'); })
       .catch(function(e){
         // Re-open the same form with the typed values so nothing is lost
         S.editRow=editing; S.editOrig=orig;
@@ -396,12 +405,12 @@
     call('markDone',S.token,p.row,p.type,d).then(function(dash){ render(dash); toast('Marked done ✓'); })
       .catch(function(e){ toast(''); msg('pMsg',e.message); });
   }
-  function refresh(){ call('getDashboard',S.token).then(render).catch(function(){}); }
+  function refresh(){ loading('Refreshing…'); call('getDashboard',S.token).then(render).catch(function(){}).then(function(){ loading(''); }); }
 
   /* ---------- boot ---------- */
   (function(){
     var t=ss('tok');
-    if(t){ S.token=t; start().catch(function(){ showLogin(''); }); }
+    if(t){ S.token=t; loading('Loading data…'); start().catch(function(){ showLogin(''); }).then(function(){ loading(''); }); }
   })();
 </script>
 </body>
