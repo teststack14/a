@@ -68,6 +68,8 @@
   .row-actions input{width:140px;padding:5px 8px}
   .row-actions button{padding:6px 10px}
   .muted{color:var(--muted)}
+  .show-m{display:none}
+  .done-btn{padding:6px 14px;white-space:nowrap}
   .tbl tr.act td{border-top:0;padding-top:0}
   .tbl tr:has(+ tr.act) td{border-bottom:0}
   .hidden{display:none}
@@ -93,7 +95,7 @@
   .spin{width:26px;height:26px;border:3px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#166534;color:#fff;padding:10px 18px;border-radius:10px;z-index:30;font-weight:600;display:none}
-  @media (max-width:760px){.hide-m{display:none}.tbl th,.tbl td{padding:6px 5px;font-size:12.5px}.bal .v{font-size:17px}.overlay{padding:0}.modal{border-radius:0;min-height:100%}.btn-new{width:100%}}
+  @media (max-width:760px){.hide-m{display:none}.show-m{display:inline}.done-btn{padding:6px 9px;font-size:12.5px}#pending .tbl th,#pending .tbl td{padding:6px 3px;font-size:12px}.tbl th,.tbl td{padding:6px 5px;font-size:12.5px}.bal .v{font-size:17px}.overlay{padding:0}.modal{border-radius:0;min-height:100%}.btn-new{width:100%}}
   @media (max-width:760px){.g3,.g2{grid-template-columns:1fr} main{padding:10px}}
 </style>
 </head>
@@ -191,8 +193,8 @@
   function showDate(ymd){ if(!ymd) return ''; var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var p=ymd.split('-'); return p[2]+'-'+m[Number(p[1])-1]+'-'+p[0]; }
   function msg(id, text, ok){ var el=$(id); el.className='msg '+(text?(ok?'ok':'err'):''); el.textContent=text||''; }
 
-  /* ====== ====== */
-  var API_URL = 'https://script.google.com/macros/s/AKfycbwU-3F71PV1k3ngndjQloOLBlCtC-t0KryQMq4Bv-tfScqQu7KWx3fWxpFU4WgCQrFGuw/exec';
+  /* ====== PASTE YOUR APPS SCRIPT WEB APP URL HERE (ends with /exec) ====== */
+  var API_URL = 'https://script.google.com/macros/s/AKfycbzv_tIk76u3_h3YrdJVCR9od2FH743ThVtFTVaB7Jn-VeQ3HifbciJv5gDnYEHnO6dOgw/exec';
 
   function call(fn){
     var args=[].slice.call(arguments,1);
@@ -288,10 +290,10 @@
     }
 
     // pending list
-    $('pending').innerHTML = dash.pending.length ? '<table class="tbl"><thead><tr><th>Date</th><th class="hide-m">Account</th><th>Description</th><th class="n">Amount</th></tr></thead><tbody>'+
+    $('pending').innerHTML = dash.pending.length ? '<table class="tbl"><thead><tr><th>Date</th><th class="hide-m">Account</th><th>Description</th><th class="n">Amount</th><th></th></tr></thead><tbody>'+
       dash.pending.map(function(p,i){
-        return '<tr><td>'+esc(showDate(p.date))+'</td><td class="hide-m">'+esc(p.acc)+'</td><td>'+esc(p.desc)+'</td><td class="n"><b>'+(p.type==='PAID'?'Paid ':'Rec ')+'</b>'+fmt(p.amt)+' '+esc(p.cur)+'</td>'+
-          '</tr><tr class="act"><td colspan="4"><div class="row-actions"><input type="date" id="pd'+i+'" value="'+localYmd()+'"><button onclick="markDone('+i+')">Done</button></div></td></tr>';
+        return '<tr><td style="white-space:nowrap"><span class="hide-m">'+esc(showDate(p.date))+'</span><span class="show-m">'+esc(showDate(p.date).slice(0,6))+'</span></td><td class="hide-m">'+esc(p.acc)+'</td><td>'+esc(p.desc)+'</td><td class="n" style="white-space:normal"><b>'+(p.type==='PAID'?'Paid':'Rec')+'</b> <span style="white-space:nowrap">'+fmt(p.amt)+' '+esc(p.cur)+'</span></td>'+
+          '<td class="n" style="width:1%"><button class="done-btn" onclick="markDone('+i+')">Done</button></td></tr>';
       }).join('')+'</tbody></table>' : '<span class="muted">Nothing pending.</span>';
 
     updateHints();
@@ -397,7 +399,7 @@
       }).then(function(){ b.disabled=false; });
   }
   function markDone(i){
-    var p=S.dash.pending[i], d=$('pd'+i).value;
+    var p=S.dash.pending[i], d=localYmd();   // Done = today's date
     if(!d){ msg('pMsg','Select a date.'); return; }
     var sideTxt = p.type==='PAID' ? 'Paid' : 'Received';
     if(!confirm('Confirm: mark as DONE?\n\n'+p.desc+'\n'+sideTxt+' '+fmt(p.amt)+' '+p.cur+'\nDate: '+showDate(d))) return;
