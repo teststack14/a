@@ -256,26 +256,32 @@
   /* ---------- render ---------- */
   function render(dash){
     S.dash=dash;
-    // balance cards
-    $('balances').innerHTML = dash.balances.length ? dash.balances.map(function(b){
+    // balance cards: show only currencies whose balance is not 0.00
+    var visibleBalances = (dash.balances||[]).filter(function(b){
+      return Number(b.balance) !== 0;
+    });
+    $('balances').innerHTML = visibleBalances.length ? visibleBalances.map(function(b){
       var p=[]; if(b.pendPaid) p.push('Pending paid: '+fmt(b.pendPaid)); if(b.pendRec) p.push('Pending receive: '+fmt(b.pendRec));
       return '<div class="bal"><div class="c">'+esc(b.cur)+'</div><div class="v '+cls(b.balance)+'">'+fmt(b.balance)+'</div><div class="p">'+esc(p.join(' · '))+'</div></div>';
     }).join('') : '<span class="muted">No entries yet.</span>';
 
-    // today's groups
-    var curList=dash.groups.map(function(g){return g.cur;});
+    // today's tabs: show only currencies that have at least one transaction today
+    var visibleGroups = (dash.groups||[]).filter(function(g){
+      return g.lines && g.lines.length > 0;
+    });
+    var curList=visibleGroups.map(function(g){return g.cur;});
     if(!S.tab || (S.tab!=='SUMMARY' && curList.indexOf(S.tab)<0)){
-      var firstWith=dash.groups.filter(function(g){return g.lines.length;})[0];
-      S.tab = curList.indexOf('GBP')>=0 ? 'GBP' : (firstWith?firstWith.cur:curList[0]);
+      var firstWith=visibleGroups[0];
+      S.tab = curList.indexOf('GBP')>=0 ? 'GBP' : (firstWith?firstWith.cur:'SUMMARY');
     }
-    $('curTabs').innerHTML = dash.groups.map(function(g){
+    $('curTabs').innerHTML = visibleGroups.map(function(g){
       return '<button class="tab'+(g.cur===S.tab?' active':'')+'" data-cur="'+esc(g.cur)+'" onclick="selectTab(this.getAttribute(\'data-cur\'))">'+
-        esc(g.cur)+(g.lines.length?'<span class="cnt">'+g.lines.length+'</span>':'')+'</button>';
+        esc(g.cur)+'<span class="cnt">'+g.lines.length+'</span></button>';
     }).join('') +
       '<button class="tab'+(S.tab==='SUMMARY'?' active':'')+'" onclick="selectTab(\'SUMMARY\')">SUMMARY</button>';
     if(S.tab==='SUMMARY'){ renderSummary(dash.summary||[]); }
     else {
-    var g = dash.groups.filter(function(x){return x.cur===S.tab;})[0];
+    var g = visibleGroups.filter(function(x){return x.cur===S.tab;})[0];
     if(!g){ $('groups').innerHTML='<span class="muted">No entries today.</span>'; }
     else {
       var rows='<tr class="open"><td class="hide-m"></td><td colspan="3">Opening balance</td><td class="n '+cls(g.opening)+'">'+fmt(g.opening)+'</td></tr>';
