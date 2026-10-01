@@ -182,7 +182,7 @@
 <div class="loader hidden" id="loader"><div class="loader-box"><div class="spin"></div><span id="loaderText">Please wait…</span></div></div>
 
 <script>
-  var S = { token: null, user: null, dash: null, tab: null, curs: [], editRow: null, editOrig: null };
+  var S = { token: null, user: null, dash: null, tab: null, curs: [], editRow: null, editOrig: null, saveReqId: null };
 
   function ss(k, v){ try{ if(v===undefined) return sessionStorage.getItem(k); if(v===null) sessionStorage.removeItem(k); else sessionStorage.setItem(k,v); }catch(e){ return null; } }
   function $(id){ return document.getElementById(id); }
@@ -190,6 +190,7 @@
   function fmt(n){ return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function cls(n){ return Number(n)<0 ? 'neg' : ''; }
   function localYmd(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  function newReqId(){ try{ if(window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g,''); }catch(e){} return String(Date.now())+'_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2); }
   function showDate(ymd){ if(!ymd) return ''; var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var p=ymd.split('-'); return p[2]+'-'+m[Number(p[1])-1]+'-'+p[0]; }
   function msg(id, text, ok){ var el=$(id); el.className='msg '+(text?(ok?'ok':'err'):''); el.textContent=text||''; }
 
@@ -263,21 +264,24 @@
 
     // today's groups
     var curList=dash.groups.map(function(g){return g.cur;});
-    if(!S.tab || curList.indexOf(S.tab)<0){
+    if(!S.tab || (S.tab!=='SUMMARY' && curList.indexOf(S.tab)<0)){
       var firstWith=dash.groups.filter(function(g){return g.lines.length;})[0];
       S.tab = curList.indexOf('GBP')>=0 ? 'GBP' : (firstWith?firstWith.cur:curList[0]);
     }
     $('curTabs').innerHTML = dash.groups.map(function(g){
       return '<button class="tab'+(g.cur===S.tab?' active':'')+'" data-cur="'+esc(g.cur)+'" onclick="selectTab(this.getAttribute(\'data-cur\'))">'+
         esc(g.cur)+(g.lines.length?'<span class="cnt">'+g.lines.length+'</span>':'')+'</button>';
-    }).join('');
+    }).join('') +
+      '<button class="tab'+(S.tab==='SUMMARY'?' active':'')+'" onclick="selectTab(\'SUMMARY\')">SUMMARY</button>';
+    if(S.tab==='SUMMARY'){ renderSummary(dash.summary||[]); }
+    else {
     var g = dash.groups.filter(function(x){return x.cur===S.tab;})[0];
     if(!g){ $('groups').innerHTML='<span class="muted">No entries today.</span>'; }
     else {
       var rows='<tr class="open"><td class="hide-m"></td><td colspan="3">Opening balance</td><td class="n '+cls(g.opening)+'">'+fmt(g.opening)+'</td></tr>';
       rows+= g.lines.length ? g.lines.map(function(l){
         return '<tr><td class="hide-m">'+esc(l.acc)+'</td>'+
-          '<td>'+esc(l.desc)+(l.yesterday?'<span class="badge b-y">Yesterday</span>':'')+(l.done?'':'<span class="badge b-pend b-pend-s">Pending</span>')+(S.dash.entries&&S.dash.entries[l.row]?'<button class="edit-btn" title="Edit" aria-label="Edit" onclick="editRow('+l.row+')">✎</button>':'')+'</td>'+
+          '<td>'+esc(l.desc)+(l.yesterday?'<span class="badge b-y">Yesterday</span>':'')+(l.done?'':'<span class="badge b-pend b-pend-s">Pending</span>')+(S.dash.entries&&S.dash.entries[l.row]?'<button class="edit-btn" title="Edit" aria-label="Edit" onclick="editRow(\''+esc(l.row)+'\')">✎</button>':'')+'</td>'+
           '<td class="n">'+(l.type==='RECEIVED'?fmt(l.amt):'')+'</td>'+
           '<td class="n">'+(l.type==='PAID'?fmt(l.amt):'')+'</td>'+
           '<td class="n '+cls(l.running)+'">'+fmt(l.running)+'</td></tr>';
@@ -287,6 +291,7 @@
       $('groups').innerHTML='<div class="scroll"><table class="tbl">'+
         '<thead><tr><th class="hide-m">Account</th><th>Description</th><th class="n">Received</th><th class="n">Paid</th><th class="n">Running Bal</th></tr></thead>'+
         '<tbody>'+rows+'</tbody></table></div>';
+    }
     }
 
     // pending list
@@ -321,6 +326,23 @@
     h.classList.remove('show'); h.innerHTML='';
   }
   function selectTab(cur){ S.tab=cur; render(S.dash); }
+  /* ---------- SUMMARY tab (view only, data from BALANCE sheet) ---------- */
+  function fmtRate(n){ return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:4,maximumFractionDigits:6}); }
+  function renderSummary(list){
+    if(!list.length){ $('groups').innerHTML='<span class="muted">No summary data.</span>'; return; }
+    var total=0;
+    var rows=list.map(function(s){
+      total+=Number(s.usd)||0;
+      return '<tr><td>'+esc(s.cur)+'</td>'+
+        '<td class="n '+cls(s.total)+'">'+fmt(s.total)+'</td>'+
+        '<td class="n">'+fmtRate(s.rate)+'</td>'+
+        '<td class="n '+cls(s.usd)+'">'+fmt(s.usd)+'</td></tr>';
+    }).join('');
+    rows+='<tr class="close"><td colspan="3">Total USD</td><td class="n '+cls(total)+'">'+fmt(total)+'</td></tr>';
+    $('groups').innerHTML='<div class="scroll"><table class="tbl">'+
+      '<thead><tr><th>Currency</th><th class="n">Total Balance</th><th class="n">Conv Rate</th><th class="n">USD Balance</th></tr></thead>'+
+      '<tbody>'+rows+'</tbody></table></div>';
+  }
   function amtVal(id){ var n=Number(String($(id).value).replace(/,/g,'').trim()); return isNaN(n)?0:n; }
   function buildChips(side){
     $(side+'Chips').innerHTML=S.curs.map(function(c){
@@ -335,11 +357,12 @@
   function pickCur(side,cur){ setCur(side, $(side+'Cur').value===cur ? '' : cur); } // tap again = unselect
   function toast(t,stay){ var el=$('toast'); clearTimeout(toast._t); if(!t){el.style.display='none';return;} el.textContent=t; el.style.display='block'; if(!stay) toast._t=setTimeout(function(){el.style.display='none';},2500); }
   function openForm(entry){
+    S.saveReqId=null;
     resetForm();
     S.editRow=null; S.editOrig=null;
     if(entry){
       S.editRow=entry.row; S.editOrig={date:entry.date, desc:entry.desc};
-      $('fDate').value=entry.date; $('fAcc').value=entry.acc; $('fDesc').value=entry.desc; $('fRemark').value=entry.remark||'';
+      $('fDate').value=entry.date; $('fDate').disabled=true; $('fAcc').value=entry.acc; $('fDesc').value=entry.desc; $('fRemark').value=entry.remark||'';
       setCur('r',entry.rCur); $('rAmt').value=entry.rAmt||''; $('rDone').checked=entry.rCur?entry.rDone:true;
       setCur('p',entry.pCur); $('pAmt').value=entry.pAmt||''; $('pDone').checked=entry.pCur?entry.pDone:true;
     }
@@ -357,7 +380,8 @@
 
   /* ---------- actions ---------- */
   function resetForm(){
-    $('fDate').value=localYmd(); $('fDesc').value=''; $('fRemark').value='';
+    $('fDate').disabled=false;
+    $('fDate').value=(S.dash&&S.dash.today)||localYmd(); $('fDesc').value=''; $('fRemark').value='';
     var acc=$('fAcc'); acc.value = [].some.call(acc.options,function(o){return o.value==='CLIENT';}) ? 'CLIENT' : '';
     ['pAmt','rAmt'].forEach(function(id){ $(id).value=''; }); setCur('r',''); setCur('p','');
     $('rDone').checked=true; $('pDone').checked=true;
@@ -381,14 +405,16 @@
       rCur:$('rCur').value, rAmt:($('rAmt').value.trim()?amtVal('rAmt'):''), rDone:$('rDone').checked,
       pCur:$('pCur').value, pAmt:($('pAmt').value.trim()?amtVal('pAmt'):''), pDone:$('pDone').checked };
     var editing=S.editRow, orig=S.editOrig;
+    var requestId=S.saveReqId || newReqId();
+    S.saveReqId=requestId;
     // Close the form at once; the sheet is updated in the background
     closeForm(); toast(editing?'Updating…':'Saving…',true);
     var t0=Date.now();
-    var req = editing ? call('updateEntry',S.token,editing,orig,entry) : call('saveEntry',S.token,entry);
+    var req = editing ? call('updateEntry',S.token,editing,orig,entry) : call('saveEntry',S.token,entry,requestId);
     req.then(function(d){ render(d);
       var tot=((Date.now()-t0)/1000).toFixed(1), srv=S.lastMs&&S.lastMs.total?(S.lastMs.total/1000).toFixed(1):'?';
       S.timing='Total '+tot+'s | Google script '+srv+'s | '+JSON.stringify(S.lastMs||{});
-      toast(editing?'Entry updated ✓':'Entry saved ✓'); })
+      S.saveReqId=null; toast(editing?'Entry updated ✓':'Entry saved ✓'); })
       .catch(function(e){
         // Re-open the same form with the typed values so nothing is lost
         S.editRow=editing; S.editOrig=orig;
@@ -399,12 +425,12 @@
       }).then(function(){ b.disabled=false; });
   }
   function markDone(i){
-    var p=S.dash.pending[i], d=localYmd();   // Done = today's date
-    if(!d){ msg('pMsg','Select a date.'); return; }
+    var p=S.dash.pending[i], d=localYmd();   // user's local calendar date
+    if(!d){ msg('pMsg','Invalid date.'); return; }
     var sideTxt = p.type==='PAID' ? 'Paid' : 'Received';
     if(!confirm('Confirm: mark as DONE?\n\n'+p.desc+'\n'+sideTxt+' '+fmt(p.amt)+' '+p.cur+'\nDate: '+showDate(d))) return;
     msg('pMsg',''); toast('Updating…',true);
-    call('markDone',S.token,p.row,p.type,d).then(function(dash){ render(dash); toast('Marked done ✓'); })
+    call('markDone',S.token,p.row,p.type,d,p.desc).then(function(dash){ render(dash); toast('Marked done ✓'); })
       .catch(function(e){ toast(''); msg('pMsg',e.message); });
   }
   function refresh(){ loading('Refreshing…'); call('getDashboard',S.token).then(render).catch(function(){}).then(function(){ loading(''); }); }
